@@ -1,0 +1,309 @@
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta charset="utf-8">
+	<title>D3 Test</title>
+	<script type="text/javascript" src="./lib/d3.js"></script>
+	<style type="text/css">
+	</style>
+</head>
+<body>
+	<table height="600" width="1500" border="1">
+		<tr>
+			<td width="300" valign="top">
+				<table cellpadding="5">
+					<tr><td><b>職種:</b></td></tr>
+					<tr><td>
+						<table width="280" id="control_job">
+						</table>
+					</td></tr>
+					<tr><td><b>y軸:</b></td></tr>
+					<tr><td>
+						<table width="280" id="control_yaxis">
+						</table>
+					</td></tr>
+				</table>
+			</td>
+			<td width="1200" id="graph"></td>
+		</tr>
+	</table>
+
+	<script type="text/javascript">
+	var salary_data;
+	var uniqueLabelArray;
+	var selectedItemsArray = [];
+	var svg;
+	var svg2;
+	var color = d3.scale.category10();
+	var control_yaxisArray = ["人数", "各職種内パーセント"];
+	var yaxis_mode = 0;
+
+	d3.csv("data_salary2012.csv", function(error,data){
+
+		if(error){console.log("error");
+		}else{
+			salary_data = data;
+			createLabelArrays(salary_data);
+			createPivotGraph();
+			svg =
+			d3.select("#graph").append("svg").attr("width",1200).attr("height",600);
+			svg2 =
+			d3.select("#graph").append("svg2").attr("width",1200).attr("height",600);
+		}
+
+	});
+
+	function createLabelArrays()
+	{
+
+		// removing duplicates on labels
+		uniqueLabelArray = {"職種":[], "性別":[], "年収区分":[]};
+		salary_data.forEach( function(d, i) {
+			if(uniqueLabelArray.職種.indexOf(d.職種) < 0) uniqueLabelArray.職種.push(d.職種);
+			if(uniqueLabelArray.性別.indexOf(d.性別) < 0) uniqueLabelArray.性別.push(d.性別);
+			if(uniqueLabelArray.年収区分.indexOf(d.年収区分) < 0) uniqueLabelArray.年収区分.push(d.年収区分);
+
+		});
+		
+	}
+	function createPivotGraph(){
+		d3.select("#control_job").selectAll("tr").data(uniqueLabelArray.職種).enter()
+			.append("tr")
+			.attr("id", function(d, i) { return "job" + i; })
+			.attr("onclick","changeHighlight(this)")
+			.append("td")
+			.text(function (d) {return d;});
+
+		d3.select("#control_yaxis").selectAll("tr").data(control_yaxisArray).enter()
+			.append("tr")
+			.attr("id", function(d, i) { return "yaxis" + i; })
+			.attr("name", "yaxis")
+			.attr("onclick","changeValue(this)")
+			.append("td")
+			.text(function (d) {return d;});
+
+
+	}
+
+	function changeHighlight(obj)
+	{
+
+		var selected_color = "rgb(220, 220, 220)";
+		var unselected_color = "rgb(255, 255, 255)";
+		console.log(obj);
+		if(obj.style.backgroundColor == selected_color){
+			obj.style.backgroundColor = unselected_color;
+
+			var index = parseInt(obj.id.slice(3));
+			selectedItemsArray.some(function(v,i){if(v == uniqueLabelArray.職種[index]) selectedItemsArray.splice(i,1);});
+			changeView();
+		}else{
+			obj.style.backgroundColor = selected_color;
+
+			var index = parseInt(obj.id.slice(3));
+			selectedItemsArray.push(uniqueLabelArray.職種[index]);
+			changeView();
+		}
+		console.log(selectedItemsArray);
+	}
+
+	function changeValue(obj)
+	{
+
+		var selected_color = "rgb(3, 220, 220)";
+		var unselected_color = "rgb(255, 255, 255)";
+		var all_yaxis = document.getElementsByName("yaxis");
+
+		if(obj.style.backgroundColor != selected_color){
+			for(var i = 0;i<all_yaxis.length;i++){
+				all_yaxis.item(i).style.backgroundColor = unselected_color;
+			}
+			obj.style.backgroundColor = selected_color;
+			yaxis_mode = parseInt(obj.id.slice(5));
+
+			console.log(yaxis_mode);
+
+			changeView();
+		}
+	}
+
+	function changeView()
+	{
+		var salaryLabelArray = [];
+		var numberArray = [];
+		var numberArray_female = [];
+		var bar_default_width = 50;
+		var bar_margin = 10;
+		var x_margin = 100;
+		var y_margin = 20;
+		var graph_base = 500;
+
+		//remove all existing SVG elements
+		svg.selectAll("*").remove();
+		svg2.selectAll("*").remove();
+		if(selectedItemsArray.length != 0)
+		{
+			//numberArrayに職種順、年収区分順に人数をpushする
+			for(var j=0;j<selectedItemsArray.length;j++)
+			{
+				salary_data.some(function(v,i){
+					if(v.職種 == selectedItemsArray[j] && v.性別 == "男性"){
+						numberArray.push(parseInt(v.人数));
+					}else if(v.職種 == selectedItemsArray[j] && v.性別 == "女性"){
+						numberArray_female.push(parseInt(v.人数));
+					}});
+			}
+			
+			//define the range of bar graphs
+			var scale = d3.scale.linear();
+			scale.range([graph_base,y_margin]);
+			var tmp_sum;
+			if(yaxis_mode == 0){
+				//showing raw numbers, do nothing
+				scale.domain([0,d3.max(numberArray)+d3.max(numberArray_female)]);
+			
+			}else if(yaxis_mode == 1){
+				//calculating the percentage for each job group
+				for(var i = 0;i<selectedItemsArray.length;i++){
+					var tmp_numberArray =numberArray.slice(i*uniqueLabelArray.年収区分.length,(i+1)*uniqueLabelArray.年収区分.length);
+					var tmp_numberArray_female =numberArray_female.slice(i*uniqueLabelArray.年収区分.length,(i+1)*uniqueLabelArray.年収区分.length);
+
+					tmp_sum = tmp_numberArray.reduce(function(x,y){return x+y;}) + tmp_numberArray_female.reduce(function(x,y){return x+y;});
+			
+					for(var j = 0;j<uniqueLabelArray.年収区分.length;j++)
+					{
+						numberArray[i*uniqueLabelArray.年収区分.length + j]
+						= numberArray[i*uniqueLabelArray.年収区分.length + j]/tmp_sum*100;
+						numberArray_female[i*uniqueLabelArray.年収区分.length + j]
+						= numberArray_female[i*uniqueLabelArray.年収区分.length + j]/tmp_sum*100;
+
+					}
+				}
+				scale.domain([0,50]);
+console.log(tmp_sum);
+			}
+
+
+			var legends = svg.selectAll("rect").select("職種").data(selectedItemsArray)
+				.enter().append("rect");
+			//	console.log(legends);
+			console.log(legends);
+			
+			legends.attr("stroke-width",3).attr("stroke","rgb(0,0,255)");
+			
+			var legends_xpos = 600;
+			legends.attr("x",legends_xpos)
+				.attr("y",function(d,i){
+					return (i+1)*20;})
+				.attr("height",10)
+				.attr("width",50);
+			legends.attr("fill",function(d,i){
+				return color(i);});
+			
+			var atext = svg.selectAll("text").select("職種")
+				.data(selectedItemsArray).enter();
+			console.log(atext);
+			var legends_text = atext.append("text")
+				.text(function(d){return d;})
+				.attr("x", legends_xpos+70)
+				.attr("y",function(d,i){return (i+1)*20+10;})
+				.attr("font-family","sans-serif")
+				.attr("fill","black");
+
+	
+	
+
+		
+			var bars = svg.selectAll("rect").select("年収区分").data(numberArray)
+				.enter().append("rect");
+			console.log(bars);
+			var bars_female = svg.selectAll("rect").select("年収区分").data(numberArray_female)
+				.enter().append("rect");
+			console.log(bars_female);		
+			
+			var bar_width  = parseInt(bar_default_width/selectedItemsArray.length);
+			
+			bars.attr("x", function(d,i){return(parseInt(i/uniqueLabelArray.年収区分.length))*bar_width + (i%uniqueLabelArray.年収区分.length)*(bar_default_width + bar_margin) + x_margin;	
+			})
+				.attr("y",graph_base)
+				.attr("height",0)
+				.attr("width", (bar_width - 2)/2);
+
+			bars_female.attr("x", function(d,i){return(parseInt(i/uniqueLabelArray.年収区分.length))*bar_width + (i%uniqueLabelArray.年収区分.length)*(bar_default_width + bar_margin) + x_margin + 20;
+			})
+				.attr("y",graph_base)
+				.attr("height",0)
+				.attr("width", (bar_width - 2)/2);
+
+			bars.attr("fill", function(d,i){
+				return color(parseInt(i/uniqueLabelArray.年収区分.length));
+			});
+			
+			bars_female.attr("fill", function(d,i){
+				return color(parseInt(i/uniqueLabelArray.年収区分.length));
+			});
+
+   			bars.transition()
+				.duration(2000)
+				.ease("linear")
+				.attr("y",function(d){return scale(d);})
+				.attr("height",function(d){return graph_base
+					- scale(d);})
+				.attr("stroke-width",5/selectedItemsArray.length)
+				.attr("stroke","rgb(0,0,255)");
+			console.log(bars_female);
+			console.log(numberArray_female);   	
+			bars_female.transition()
+				.duration(2000)
+				.ease("linear")
+				//.attr("y",function(d){return graph_base-scale(d);})			
+				.attr("y",function(d,i){return scale(d);})
+				.attr("height",function(d){return graph_base
+					- scale(d);})
+				.attr("stroke-width",5/selectedItemsArray.length)
+				.attr("stroke","rgb(0,255,0)");
+			console.log(numberArray);
+			
+		
+			
+		}
+
+		var text = svg.selectAll("text").select("年収区分")
+			.data(uniqueLabelArray.年収区分).enter();
+console.log(text);
+		var bars_text = text.append("text")
+			.text(function(d){return d;})
+			.attr("x", -600)
+			.attr("y",function(d,i){return i*(bar_default_width + bar_margin) + x_margin + bar_default_width/2;})
+			.attr("transform","rotate(-90)")
+			.attr("font-family","sans-serif")
+			.attr("fill","black");
+		var yAxis = d3.svg.axis()
+			.orient("left")
+			.scale(
+				d3.scale.linear()
+					.domain(scale.domain())
+					.range([graph_base,y_margin]));
+		svg.append("g")
+			.attr("id","axis")
+			.attr("transform","translate("+ x_margin + ",0)")
+			.call(yAxis);
+		//#aaa willselect the object with the ID of"aaa"
+		svg.select("#axis").selectAll("path")
+			.attr("fill","none")
+			.attr("stroke","black")
+			.attr("shape-rendering","crispEdges");
+		svg2.select("#axis").selectAll("path")
+			.attr("fill","none")
+			.attr("stroke","black")
+			.attr("shape-rendering","crispEdges");
+
+		
+	
+
+
+	}
+	
+	
+	
+	
+	</script>
+</body></html>
