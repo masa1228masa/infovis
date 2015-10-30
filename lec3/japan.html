@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>D3 Test</title>
+		<script src="./lib/d3.js" charset="utf-8"></script>
+		<script src="./lib/topojson.js" charset="utf-8"></script>
+		<script src="./japan_population.json" charset="utf-8"></script>
+	</head>
+	<body>
+		<script type="text/javascript">
+
+		var width = 800;
+		var height = 800;
+		
+		var color = d3.scale.linear()
+			.domain([500000,13000000])
+			.range([255,0]);
+		
+		var svg = d3.select("body").append("svg")
+			.attr("width",width)
+			.attr("height",height);
+		
+		var populationHash_2010 = [];
+		var populationHash_2000 = [];
+		var sub = [];
+		JapanPopulationData.Data.forEach(function(d,i)
+			{
+				
+				populationHash_2010[d.Prefecture] = d.Population_2010;
+
+				populationHash_2000[d.Prefecture] = d.Population_2000;
+				sub.push(d.Population_2010-d.Population_2000);
+			});
+		
+		d3.json("./lib/japan.topojson",function(data){
+			var japan = topojson.feature(data,data.objects.japan);
+			
+			//Mercator projection
+			var projection = d3.geo.mercator()
+				.center([137,34]) //lat and long
+				.translate([width/2,height/2])
+				.scale(1500);
+			
+			//sub = makesub(sub);
+			var submax_inc = d3.max(sub);
+			var submax_dec = -d3.min(sub);
+
+
+			var path = d3.geo.path().projection(projection);
+			
+			
+			svg.selectAll("path")
+				.data(japan.features)
+				.enter()
+				.append("path")
+				.attr("d",path)
+				.attr("fill",function(d){
+					return	makecolorlevel(d);}
+				)
+				
+				.attr("stroke","#333333")
+				.attr("stroke-width",1)
+				.on("mouseover",function(d)
+					{showDetails(d.properties.nam_ja);});
+			
+			function makecolorlevel(d){
+				var diff = populationHash_2010[d.properties.nam_ja] - populationHash_2000[d.properties.nam_ja]
+				if(diff/submax_inc >= 0.8){
+					return "rgb(" + 255*1.0 + ",0,0)" ;
+				}else if(diff/submax_inc >= 0.6){
+					return "rgb(" + 255*0.8 + ",0,0)" ;
+				}else if(diff/submax_inc >= 0.4){
+					return "rgb(" + 255*0.6 + ",0,0)" ;
+				}else if(diff/submax_inc >= 0.2){
+					return "rgb(" + 255*0.4 + ",0,0)" 
+				}else if(diff/submax_inc >= 0.0){
+					return "rgb(" + 255*0.2 + ",0,0)" 
+				}else if(diff/submax_dec >= -0.2){
+					return "rgb(0,0,"+ 255*0.2 + ")" 
+				}else if(diff/submax_dec >= -0.4){
+					return "rgb(0,0,"+ 255*0.4 + ")" 
+				}else if(diff/submax_dec >= -0.6){
+					return "rgb(0,0,"+ 255*0.6 + ")"  
+				}else if(diff/submax_dec >= -0.8){
+					return "rgb(0,0,"+ 255*0.8 + ")"  
+				}else if(diff/submax_dec >= -1.0){
+					return "rgb(0,0,"+ 255*1.0 + ")" 
+				}
+			}
+			function makecolor(d){
+				if(populationHash_2010[d.properties.nam_ja] >= populationHash_2000[d.properties.nam_ja] ){
+					return "rgb(" + parseInt(Math.abs(populationHash_2000[d.properties.nam_ja] - populationHash_2010[d.properties.nam_ja])/submax_inc*255) + ",0,0)";
+				}else{
+					
+					return "rgb(0,0," + parseInt(Math.abs(populationHash_2000[d.properties.nam_ja] - populationHash_2010[d.properties.nam_ja])*255/submax_dec) + ")";
+					
+				}
+			}
+			//"rgb(255, " + Math.floor(color(populationHash[d.properties.nam_ja])) + "," + Math.floor(color(populationHash[d.properties.nam_ja])) + ")";})
+
+				
+				var pref_details = svg.append("text")
+					.attr("x",50)
+					.attr("y",50)
+					.attr("font-size",24)
+					.attr("stroke","none")
+					.attr("fill","black");
+			
+			function showDetails(pref)
+			{
+				
+				pref_details.text(pref + ": " + populationHash_2010[pref]
+					+ "人" + 
+					+ "2000" +  "年" + populationHash_2000[pref] + "人");
+			}
+		});
+		
+		</script>
+	</body></html>

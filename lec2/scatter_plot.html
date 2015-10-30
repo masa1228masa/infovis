@@ -91,7 +91,7 @@
 
 		var regions_array = [];
 		
-	//	console.log(interpolateData(nations).region);
+		//	console.log(interpolateData(nations).region);
 
 		var circle = svg.append("g")
 			.attr("class","circles")
@@ -104,18 +104,85 @@
 				
 				if(d.region == regions_array[j]){
 					return color(j);}
-			}
-				
+			
+			}	
 				regions_array.push(d.region);
-				return color(j+1);
+				return color(j);
+			
 			})
 			.attr("stroke","black")
 			.call(position)
-			.sort(order)
+			.sort(order);
 
+		var circle_region = svg.append("g").attr("class","circle_region").selectAll(".circle")
+			.data(regions_array)
+			.enter()
+			.append("circle")
+			.attr("cx",50)
+			.attr("cy",function(d,i){return (i+1)*30;})
+			.attr("r",10)
+			.attr("fill",function(d,i){return color(i);})
+			for(var j =0 ;j<regions_array.length;j++){
+			var regions_text = svg.append("text")
+				.data(regions_array[j])
+				.attr("x",80)
+				.attr("y",function(d,i){
+					return (j+1)*30;})
+				.text(function(d,i){
+					return regions_array[j];});
+}
+		
+		
+
+
+		circle_region.on("mouseover",function(d,i){
+			d3.select(this).attr("fill",color(regions_array.length+1));
+		
+			circle.style("visibility",function(da,i){
+				
+				if(da.region == d){
+					return "visible";
+				}else{
+					return "hidden";
+				}
+				
+			});
+		})
+			.on("mouseout",function(d,i){
+				d3.select(this).attr("fill",color(i));
+				for(var j = 0;j<regions_array.length;j++){
+					d3.selectAll(".circle").style("visibility","visible");
+					
+				}
+			});
+		
+		var node =  svg.append("text")
+			.attr("class","countryname")
+			.attr("text-anchor","end")
+			.attr("x",width-500)
+			.attr("y",500)
 			//accept key events
 		d3.select("body").on("keydown",function(){updateYear(d3.event.keyCode);});
-
+		//		d3.selectAll("circle")
+			circle.on("mouseover",function(d){
+				d3.select(this).attr("fill","rgb(255,0,0)");//color(regions_array.length+1))
+				node.text(d.name).style("visibility","visible");
+			})
+			.on("mouseout",function(d,i){
+				
+				node.style("visibility","hidden");
+				d3.select(this).attr("fill",function(d,i){
+					for(var j = 0;j<regions_array.length;j++){
+						if(d.region == regions_array[j]){   
+					
+							return color(j);
+						}
+					
+					}
+					
+				});
+			});
+		
 		function updateYear(key){
 			console.log(key);
 			//39:right arrow, 37:left arrow

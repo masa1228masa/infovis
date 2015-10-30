@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>D3 Test</title>
+		<script src="./lib/d3.js" charset="utf-8"></script>
+		<script src="./lib/topojson.js" charset="utf-8"></script>
+	</head>
+	<body>
+		<script type="text/javascript">
+
+		var width = 800;
+		var height = 800;
+		
+		var color = d3.scale.linear()
+			.domain([500000,13000000])
+			.range([255,0]);
+		
+		var svg = d3.select("body").append("svg")
+			.attr("width",width)
+			.attr("height",height);
+		
+		var unemployment = [];
+		var sub = [];
+
+
+		d3.csv("./us_unemployment_rate.csv",function(error,data){
+			
+			if(error){console.log("error");
+			}else{
+				
+				for(var j = 0;j < data.length;j++){
+					//console.log(data[j].County);
+					unemployment[data[j].County] = data[j].Unemployment;
+					
+					//			populationHash_2000[data.Prefecture] = data.Population_2000;
+					//			sub.push(data.Population_2010-data.Population_2000);
+				}
+
+			}
+		}
+		);
+		//JapanPopulationData.Data.forEach(function(d,i)
+			//	{
+			//		populationHash_2010[d.Prefecture] = d.Population_2010;
+
+		//		populationHash_2000[d.Prefecture] = d.Population_2000;
+		//		sub.push(d.Population_2010-d.Population_2000);	
+
+		//});
+		
+		d3.json("./lib/us-counties.topojson",function(data){
+			var counties = topojson.feature(data,data.objects.counties);
+			
+			//Mercator projection
+			var projection = d3.geo.albersUsa();
+			
+			//	.mercator()
+				//	.center([137,34]) //lat and long
+			//	.translate([width/2,height/2])
+				//	.scale(1500);
+			
+			//sub = makesub(sub);
+			var ratemax = d3.max(unemployment);
+			console.log(ratemax);
+			var submax_dec = -d3.min(sub);
+
+
+			var path = d3.geo.path().projection(projection);
+			
+			
+			svg.selectAll("path")
+				.data(counties.features)
+				.enter()
+				.append("path")
+				.attr("d",path)
+				.attr("fill",function(d){
+					//console.log(counties.features);
+					console.log(d.id);
+					return	makecolorlevel(d.id);}
+				)
+				
+				.attr("stroke","#333333")
+				.attr("stroke-width",1)
+				.on("mouseover",function(d)
+					{showDetails(d.id);});
+			
+			function makecolorlevel(id){
+				
+				if(unemployment[id]/ratemax >= 0.8){
+					return "rgb(" + 255*1.0 + ",0,0)" ;
+				}else if(unemployment[id]/ratemax >= 0.6){
+					return "rgb(" + 255*0.8 + ",0,0)" ;
+				}else if(unemployment[id]/ratemax >= 0.4){
+					return "rgb(" + 255*0.6 + ",0,0)" ;			
+				}else if(unemployment[id]/ratemax >= 0.2){
+					return "rgb(" + 255*0.4 + ",0,0)" 
+				}else if(unemployment[id]/ratemax >= 0.0){
+					return "rgb(" + 255*0.2 + ",0,0)" 
+				}				
+				return "rgb(0,255,0)";
+				
+				
+				
+			}
+			function makecolor(d){
+				if(populationHash_2010[d.properties.nam_ja] >= populationHash_2000[d.properties.nam_ja] ){
+					return "rgb(" + parseInt(Math.abs(populationHash_2000[d.properties.nam_ja] - populationHash_2010[d.properties.nam_ja])/submax_inc*255) + ",0,0)";
+				}else{
+					
+					return "rgb(0,0," + parseInt(Math.abs(populationHash_2000[d.properties.nam_ja] - populationHash_2010[d.properties.nam_ja])*255/submax_dec) + ")";
+					
+				}
+			}
+			//"rgb(255, " + Math.floor(color(populationHash[d.properties.nam_ja])) + "," + Math.floor(color(populationHash[d.properties.nam_ja])) + ")";})
+
+				
+				var county_details = svg.append("text")
+					.attr("x",50)
+					.attr("y",50)
+					.attr("font-size",24)
+					.attr("stroke","none")
+					.attr("fill","black");
+			
+			function showDetails(county)
+			{
+				//	console.log(county);
+				county_details.text(county + ": unemploymentrate : " + unemployment[county]
+				);
+			}
+		});
+		
+		</script>
+	</body></html>
